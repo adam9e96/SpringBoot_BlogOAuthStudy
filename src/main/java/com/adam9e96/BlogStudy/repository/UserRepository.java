@@ -5,17 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-/**
- * <p>{@code UserRepository}는 데이터베이스에서 {@link User} 엔티티와 상호 작용하기 위한
- * Spring Data JPA 인터페이스입니다. <br>
- * {@link JpaRepository}를 상속하여, 기본적인 CRUD(Create, Read, Update, Delete) 기능을
- * 비롯해, 페이징, 정렬 등에 대한 메서드를 자동으로 제공합니다.</p>
- *
- * <p>이 외에도, 사용자 정의 메서드를 통해 이메일을 기준으로 사용자 정보를 조회할 수 있습니다.</p>
- *
- * @author adam9e96
- * @see User
- */
+
 public interface UserRepository extends JpaRepository<User, Long> {
 
     /**

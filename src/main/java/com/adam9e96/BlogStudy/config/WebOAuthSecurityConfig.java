@@ -85,41 +85,47 @@ public class WebOAuthSecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // Add custom token authentication filter before UsernamePasswordAuthenticationFilter
+                // 커스텀 토큰 인증 필터 추가
+                // UsernamePasswordAuthenticationFilter 필터 이전에 커스텀 TokenAuthenticationFilter 를 추가하여
+                // JWT 토큰과 같은 토큰 기반 인증을 처리합니다.
                 .addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
 
-                // Configure authorization rules
+                // 권한 부여 규칙 설정
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/token").permitAll()
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll()
+                        .requestMatchers("/api/token").permitAll() // /api/token 허용: 토큰 발급 엔드포인트에 대한 인증되지 않은 접근을 허용
+                        .requestMatchers("/api/**").authenticated() // api/** 보호 : /api/** 경로에 대한 접근은 인증된 사용자만 허용
+                        .anyRequest().permitAll() // 기타 요청 모두 허용(비 API 엔드포인트에 대한 모든 요청을 허용)
                 )
 
-                // Configure OAuth2 login
+                // OAuth2 로그인 구성
                 .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/login")
+                        .loginPage("/login") // 로그인 페이지 설정 (oauthLogin.html)에 리디렉션하여 OAuth2 로그인을 처리
+                        // 커스텀 oAuthorizationRequestBasedOnCookieRepository 빈을 사용하여 OAuth2AuthorizationRequest 를
+                        // 사용하여 쿠키에 저장하고 인증 요청을 관리합니다.
                         .authorizationEndpoint(authorization ->
                                 authorization.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository())
                         )
+                        // 사용자 서비스 설정
+                        // OAuth2 로그인 성공 시 사용자 정보를 가져오는 데 사용할 사용자 서비스를 설정합니다.
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(oAuth2UserCustomService)
                         )
+                        // 성공 핸들러 설정
                         .successHandler(oAuth2SuccessHandler())
                 )
 
-                // Configure logout success URL
+                // 로그아웃 성공 시 리디렉션할 URL을 설정합니다.
                 .logout(logout ->
                         logout.logoutSuccessUrl("/login")
                 )
 
-                // Handle exceptions for API endpoints
+                // API 엔드포인트에 대한 예외 처리
                 .exceptionHandling(exception ->
                         exception.defaultAuthenticationEntryPointFor(
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                                 new AntPathRequestMatcher("/api/**")
                         )
                 );
-
         return http.build();
     }
 

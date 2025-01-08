@@ -3,6 +3,7 @@ package com.adam9e96.BlogStudy.util;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.SerializationUtils;
 
 import java.util.Base64;
@@ -10,6 +11,7 @@ import java.util.Base64;
 /**
  * 쿠키 관련 유틸리티 메서드를 제공하는 클래스입니다.
  */
+@Slf4j
 public class CookieUtil {
 
     /**
@@ -24,6 +26,8 @@ public class CookieUtil {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setMaxAge(maxAge);
+
+        log.info("addCookie()에서 생성된 쿠키 객체 :{}", cookie);
         response.addCookie(cookie);
     }
 
@@ -49,7 +53,9 @@ public class CookieUtil {
                 cookie.setMaxAge(0);
                 response.addCookie(cookie);
             }
+            log.info("deleteCookie()에서 삭제된 쿠키 객체 :{}", cookie);
         }
+
     }
 
     /**
