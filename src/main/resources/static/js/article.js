@@ -74,6 +74,7 @@ if (createButton) {
             title: document.getElementById("title").value,
             content: document.getElementById("content").value
         });
+        console.log("등록버튼 클릭시 body", body);
 
         function success() {
             alert("글이 등록되었습니다.");
@@ -85,6 +86,7 @@ if (createButton) {
             location.replace("/articles")
         }
 
+        // 글 등록 요청
         httpRequest("POST", "/api/articles", body, success, fail);
     });
 }
@@ -107,6 +109,16 @@ function getCookie(key) {
 }
 
 // HTTP 요청을 보내는 함수
+/**
+ * HTTP 요청을 보내는 함수입니다.
+ * @see https://developer.mozilla.org/ko/docs/Web/API/Fetch_API/Using_Fetch
+ * @see https://developer.mozilla.org/ko/docs/Web/HTTP/Methods
+ * @param method
+ * @param url
+ * @param body
+ * @param success
+ * @param fail
+ */
 function httpRequest(method, url, body, success, fail) {
     console.log(`Sending ${method} request to ${url} with body: `, body);
     fetch(url, {

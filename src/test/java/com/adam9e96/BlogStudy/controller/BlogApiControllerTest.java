@@ -1,24 +1,31 @@
 package com.adam9e96.BlogStudy.controller;
 
 import com.adam9e96.BlogStudy.domain.Article;
+import com.adam9e96.BlogStudy.domain.User;
 import com.adam9e96.BlogStudy.dto.AddArticleRequest;
 import com.adam9e96.BlogStudy.dto.UpdateArticleRequest;
 import com.adam9e96.BlogStudy.repository.BlogRepository;
+import com.adam9e96.BlogStudy.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.security.Principal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +42,10 @@ class BlogApiControllerTest {
     @Autowired
     protected MockMvc mockMvc;
 
+    @Autowired
+    UserRepository userRepository;
+
+
     /**
      * 이 클래스로 만든 객체는 자바 객체를 JSON 데이터로 변환하는 직렬화 또는
      * 반대로 JSON 데이터를 자바에서 사용하기 위해 자바 객체로 변환하는 역직렬화를 할 때 사용합니다.
@@ -48,10 +59,25 @@ class BlogApiControllerTest {
     @Autowired
     BlogRepository blogRepository;
 
+    User user;
+
     @BeforeEach
     public void mockMvcSetup() {
         this.mockMvc = MockMvcBuilders.webAppContextSetup(this.context).build();
         this.blogRepository.deleteAll();
+    }
+
+    @BeforeEach
+    void setSecurityContext() {
+        userRepository.deleteAll();
+        user = userRepository.save(User.builder()
+                .email("user@gmail.com")
+                .password("test")
+                .build());
+
+        SecurityContext context = SecurityContextHolder.getContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(user, user.getPassword()
+                , user.getAuthorities()));
     }
 
     // ============================================ //
@@ -63,8 +89,6 @@ class BlogApiControllerTest {
      * 함께 보냅니다.
      * then : 응답 코드가 201 Created 인지 확인합니다. Blog 를 전체 조회해 크기가 1인지 확인하고, 실제로 저장된 데이터와
      * 요청 값을 비교합니다.
-     *
-     * @throws Exception
      */
     @DisplayName("addArticle: 블로그 글 추가에 성공한다.")
     @Test
@@ -75,14 +99,30 @@ class BlogApiControllerTest {
         final String content = "content";
         final AddArticleRequest userRequest = new AddArticleRequest(title, content);
         log.info(userRequest.toString());
+
         // 자바객체를 JSON 으로 직렬화
-        // writeValueAsString : Java 값을 문자열로 직렬화하는 데 사용할 수 있는 메서드
+        // writeValueAsString : Java 객체를 JSON 형식의 문자열(String)로 변환하여 반환합니다.
         final String requestBody = objectMapper.writeValueAsString(userRequest);
+        log.info("직렬화된 requestBody : {}", requestBody);
+
+        /*
+         * 이렇게 직렬화된 JSON 문자열은 API 요청 본문에 포함 시킬 수 있습니다.
+         * 이때 요청 본문은 JSON 형식으로 전송되어야 하므로, Content-Type 헤더를 application/json 으로 설정해야 합니다.
+         * JSON 문자열은 API 서버로 전송되어 서버에서 이를 파싱하여 자바 객체로 변환되어 처리됩니다.
+         */
+
+        /*
+         * Principal 모킹: 인증된 사용자를 시뮬레이션하기 위해 Principal 객체를 모킹하고, getName() 메서드가 "username"을 반환하도록 설정
+         */
+        Principal principal = Mockito.mock(Principal.class);
+        Mockito.when(principal.getName()).thenReturn("username");
+
 
         // when
         // 설정한 내용을 바탕으로 요청 전송
         ResultActions result = this.mockMvc.perform(post(url)
                 .contentType(MediaType.APPLICATION_JSON)
+                .principal(principal)
                 .content(requestBody));
 
         // then
@@ -111,12 +151,13 @@ class BlogApiControllerTest {
         final String url = "/api/articles";
         final String title = "title9e96";
         final String content = "content9e96";
+        Article savedArticle = createDefaultArticle(); // 제목, 내용 등을 createDefaultArticle() 메서드로 만들어줌
 
         // 블로그 글을 저장합니다.
-        blogRepository.save(Article.builder()
-                .title(title)
-                .content(content)
-                .build());
+//        blogRepository.save(Article.builder()
+//                .title(title)
+//                .content(content)
+//                .build());
 
         // when
         final ResultActions result = this.mockMvc.perform(get(url)
@@ -125,8 +166,10 @@ class BlogApiControllerTest {
         // then
         result
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].content").value(content))
-                .andExpect(jsonPath("$[0].title").value(title));
+//                .andExpect(jsonPath("$[0].content").value(content))
+//                .andExpect(jsonPath("$[0].title").value(title));
+                .andExpect(jsonPath("$[0].content").value(savedArticle.getContent()))
+                .andExpect(jsonPath("$[0].title").value(savedArticle.getTitle()));
     }
 
     /**
@@ -146,25 +189,30 @@ class BlogApiControllerTest {
         // Given
         final String url2 = "/api/articles/{id}";
 //        final String url = "/api/articles/1";
-        final String title = "title9e96";
-        final String content = "content9e96";
+//        final String title = "title9e96";
+//        final String content = "content9e96";
+        Article savedArticle = createDefaultArticle();
 
-        Article article = Article.builder()
-                .title(title)
-                .content(content)
-                .build();
-        this.blogRepository.save(article);
+//        Article article = Article.builder()
+//                .title(title)
+//                .content(content)
+//                .build();
+//        this.blogRepository.save(article);
 
         // When
-        ResultActions result = this.mockMvc.perform(get(url2, article.getId())
+//        ResultActions result = this.mockMvc.perform(get(url2, article.getId())
+//                .contentType(MediaType.APPLICATION_JSON));
+        // When
+        final ResultActions resultActions = this.mockMvc.perform(get(url2, savedArticle.getId())
                 .contentType(MediaType.APPLICATION_JSON));
 
-
         // Then
-        result
+        resultActions
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").value(content))
-                .andExpect(jsonPath("$.title").value(title));
+//                .andExpect(jsonPath("$.content").value(content))
+//                .andExpect(jsonPath("$.title").value(title));
+                .andExpect(jsonPath("$.content").value(savedArticle.getContent()))
+                .andExpect(jsonPath("$.title").value(savedArticle.getTitle()));
     }
 
     /**
@@ -183,16 +231,18 @@ class BlogApiControllerTest {
         // Given
         final String url = "/api/articles/{id}";
 //        final String url = "/api/articles/1";
-        final String title = "title9e96";
-        final String content = "content9e96";
-        Article saveArticle = blogRepository.save(
-                Article.builder()
-                        .title(title)
-                        .content(content)
-                        .build());
+//        final String title = "title9e96";
+//        final String content = "content9e96";
+        Article savedArticle = createDefaultArticle();
+
+//        Article saveArticle = blogRepository.save(
+//                Article.builder()
+//                        .title(title)
+//                        .content(content)
+//                        .build());
 
         // When
-        mockMvc.perform(delete(url, saveArticle.getId()))
+        mockMvc.perform(delete(url, savedArticle.getId()))
                 .andExpect(status().isOk());
         // Then
         List<Article> articles = blogRepository.findAll();
@@ -215,14 +265,16 @@ class BlogApiControllerTest {
     public void updateArticle() throws Exception {
         // given
         final String url = "/api/articles/{id}";
-        final String title = "title9e96";
-        final String content = "content9e96";
+//        final String title = "title9e96";
+//        final String content = "content9e96";
+        Article savedArticle = createDefaultArticle();
 
-        Article saveArticle = blogRepository.save(
-                Article.builder()
-                        .content(content)
-                        .title(title)
-                        .build());
+
+//        Article saveArticle = blogRepository.save(
+//                Article.builder()
+//                        .content(content)
+//                        .title(title)
+//                        .build());
 
         final String newTitle = "newTitle9e96";
         final String newContent = "newContent9e96";
@@ -230,17 +282,25 @@ class BlogApiControllerTest {
         UpdateArticleRequest request = new UpdateArticleRequest(newTitle, newContent);
 
         // when
-        ResultActions result = mockMvc.perform(put(url, saveArticle.getId())
+        ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(objectMapper.writeValueAsString(request)));
 
         // then
         result.andExpect(status().isOk());
 
-        Article article = blogRepository.findById(saveArticle.getId()).get();
+        Article article = blogRepository.findById(savedArticle.getId()).get();
 
         assertThat(article.getTitle()).isEqualTo(newTitle);
         assertThat(article.getContent()).isEqualTo(newContent);
 
+    }
+
+    private Article createDefaultArticle() {
+        return blogRepository.save(Article.builder()
+                .title("title")
+                .author(user.getUsername())
+                .content("content")
+                .build());
     }
 }

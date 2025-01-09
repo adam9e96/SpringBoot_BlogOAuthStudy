@@ -3,6 +3,7 @@ package com.adam9e96.BlogStudy.config.jwt;
 import com.adam9e96.BlogStudy.domain.User;
 import com.adam9e96.BlogStudy.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,8 +31,10 @@ class TokenProviderTest {
     private JwtProperties jwtProperties;
 
     private SecretKey getSecretKey() {
-        // 비밀 키를 byte 배열로 변환하고 SecretKey 객체를 생성
-        return Keys.hmacShaKeyFor(jwtProperties.getSecretKey().getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecretKey());
+
+        return Keys.hmacShaKeyFor(keyBytes);
+
     }
 
     // generateToken() 검증 테스트

@@ -97,12 +97,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                                         Authentication authentication) throws IOException {
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        log.info("OAuth2User: {}", oAuth2User.getAttributes().toString());
-//        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
-        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
-        log.info("99", oAuth2User.getAttributes().get("email").toString());
-        log.info("999User: {}", user.toString());
+        log.info("OAuth2SuccessHandler.onAuthenticationSuccess : oAuth2User: {}", oAuth2User.getAttributes().toString());
 
+        //        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
+        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
+        log.info("User: {}", user.toString());
+        log.info("User: {}", user.getEmail());
 
         // 1. 리프레시 토큰 생성 -> 저장 -> 쿠키에 저장
         String refreshToken = tokenProvider.generateToken(user, REFRESH_TOKEN_DURATION);
@@ -117,7 +117,17 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
-    // 생성된리프레시 토큰을 전달받아 데이터베이스에 저장
+    /**
+     * 생성된 리프레시 토큰을 데이터베이스에 저장하거나 업데이트합니다.
+     *
+     * <p>
+     * 이 메서드는 사용자의 ID를 기반으로 기존의 {@link RefreshToken}을 조회하고,
+     * 존재하면 새로운 리프레시 토큰으로 업데이트하며, 존재하지 않으면 새로운 엔티티를 생성하여 저장합니다.
+     * </p>
+     *
+     * @param userId          사용자의 ID
+     * @param newRefreshToken 새로 생성된 리프레시 토큰
+     */
     private void saveRefreshToken(Long userId, String newRefreshToken) {
         RefreshToken refreshToken = refreshTokenRepository.findByUserId(userId)
                 .map(entity -> entity.update(newRefreshToken))
@@ -126,14 +136,35 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         refreshTokenRepository.save(refreshToken);
     }
 
-    // 생성된 리프레시 토큰을 쿠키에 저장
+    /**
+     * 생성된 리프레시 토큰을 HTTP 쿠키에 저장합니다.
+     *
+     * <p>
+     * 이 메서드는 기존의 {@code refresh_token} 쿠키를 삭제한 후, 새로 생성된 리프레시 토큰을 쿠키에 추가합니다.
+     * 쿠키의 유효 기간은 {@link #REFRESH_TOKEN_DURATION}으로 설정됩니다.
+     * </p>
+     *
+     * @param request      현재 HTTP 요청
+     * @param response     현재 HTTP 응답
+     * @param refreshToken 생성된 리프레시 토큰
+     */
     private void addRefreshTokenToCookie(HttpServletRequest request, HttpServletResponse response, String refreshToken) {
         int cookieMaxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
         CookieUtil.deleteCookie(request, response, REFRESH_TOKEN_COOKIE_NAME);
         CookieUtil.addCookie(response, REFRESH_TOKEN_COOKIE_NAME, refreshToken, cookieMaxAge);
     }
 
-    // 인증 관련 설정값, 쿠키 제거
+    /**
+     * 인증 관련 속성을 정리하고, 불필요한 쿠키를 제거합니다.
+     *
+     * <p>
+     * 이 메서드는 {@code OAuth2AuthenticationSuccessHandler}에서 사용된
+     * 인증 요청 쿠키를 제거하여 보안 관련 데이터를 정리합니다.
+     * </p>
+     *
+     * @param request  현재 HTTP 요청
+     * @param response 현재 HTTP 응답
+     */
     private void clearAuthenticationAttributes(HttpServletRequest request, HttpServletResponse response) {
         super.clearAuthenticationAttributes(request);
 //        authorizationRequestRepository.removeAuthorizationRequest(request, response);
@@ -143,6 +174,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     }
 
     //' 액세스 토큰을 패스에 추가
+
     /**
      * 액세스 토큰을 포함한 리다이렉트 URL을 생성합니다.
      *

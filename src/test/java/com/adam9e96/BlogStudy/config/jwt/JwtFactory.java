@@ -1,13 +1,12 @@
 package com.adam9e96.BlogStudy.config.jwt;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.Builder;
 import lombok.Getter;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Date;
 import java.util.Map;
@@ -23,8 +22,7 @@ public class JwtFactory {
 
     // 빌더 패턴을 사용해 설정이 필요한 데이터만 선택 설정
     @Builder
-    public JwtFactory(String subject, Date issueAt, Date expiration,
-                      Map<String, Object> claims) {
+    public JwtFactory(String subject, Date issueAt, Date expiration, Map<String, Object> claims) {
         this.subject = subject != null ? subject : this.subject;
         this.issueAt = issueAt != null ? issueAt : this.issueAt;
         this.expiration = expiration != null ? expiration : this.expiration;
@@ -37,15 +35,21 @@ public class JwtFactory {
 
     // jjwt 라이브러리를 사용해 JWT 토큰 생성
     public String createToken(JwtProperties jwtProperties) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtProperties.getSecretKey().getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecretKey());
+        SecretKey secretKey = Keys.hmacShaKeyFor(keyBytes);
+//        SecretKey key = Keys.hmacShaKeyFor(jwtProperties.getSecretKey().getBytes(StandardCharsets.UTF_8));
 
         return Jwts.builder()
                 .subject(subject)
                 .issuedAt(issueAt)
                 .expiration(expiration)
                 .claims(claims)
-                .setHeaderParam("typ", "JWT")
-                .signWith(key, Jwts.SIG.HS256)
+//                .setHeaderParam("typ", "JWT")
+                .header()
+                .type("JWT")
+                .and()
+//                .signWith(key, Jwts.SIG.HS256)
+                .signWith(secretKey, Jwts.SIG.HS256) // 수정된 부분
                 .compact();
     }
 }
