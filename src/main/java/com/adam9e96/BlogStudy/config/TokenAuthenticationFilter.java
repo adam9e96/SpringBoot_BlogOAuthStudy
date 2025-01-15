@@ -6,11 +6,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  * {@code TokenAuthenticationFilter}는 HTTP 요청마다 한 번씩 실행되는 커스텀 토큰 인증 필터입니다.
@@ -38,6 +41,7 @@ import java.io.IOException;
  * @see SecurityContextHolder
  */
 @RequiredArgsConstructor
+@Slf4j
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private final TokenProvider tokenProvider;
     private final static String HEADER_AUTHORIZATION = "Authorization";
@@ -70,12 +74,27 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
+        log.info("TokenAuthenticationFilter 실행");
+        log.info("Request URL: {}", request.getRequestURL());
+
+        log.info("전체 Headers: {}", Collections.list(request.getHeaderNames())
+                .stream()
+                .collect(Collectors.toMap(
+                        headerName -> headerName,
+                        request::getHeader
+                )));
+
+        // ==== 토큰 추출 ===== //
         // 요청 헤더의 Authorization 키의 값 조회
+        // HTTP 요청 헤더에서 "Authorization" 값만 가져옴
         String authorizationHeader = request.getHeader(HEADER_AUTHORIZATION);
+        log.info("Authorization Header: {}", authorizationHeader);  // 헤더 로그
+
 
         // 가져온 값에서 접두사 제거
         // 헤더 값에서 "Bearer " 접두사 제거하여 토큰 추출
         String token = getAccessToken(authorizationHeader);
+        log.info("Extracted Token: {}", token);  // 추출된 토큰 로그
 
         // 가져온 토큰이 유효한지 확인하고, 유효하면 인증 정보 설정
         if (tokenProvider.validToken(token)) {
@@ -83,6 +102,9 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             Authentication authentication = tokenProvider.getAuthentication(token);
             // 인증 정보를 SecurityContextHolder 에 설정
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            log.info("Valid Token. Authentication successful");
+        } else {
+            log.info("Invalid Token. Authentication failed");
         }
         // 다음 필터로 요청 전달
         filterChain.doFilter(request, response);
@@ -100,6 +122,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
      * @return 추출된 토큰 문자열 또는 {@code null} (헤더가 {@code Bearer }로 시작하지 않는 경우)
      */
     private String getAccessToken(String authorizationHeader) {
+        // "Bearer " 접두사 제거 하여 실제 토큰만 추출
         if (authorizationHeader != null && authorizationHeader.startsWith(TOKEN_PREFIX)) {
             return authorizationHeader.substring(TOKEN_PREFIX.length());
         }

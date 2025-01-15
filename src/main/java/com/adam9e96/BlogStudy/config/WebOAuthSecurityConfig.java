@@ -49,11 +49,12 @@ public class WebOAuthSecurityConfig {
     public WebSecurityCustomizer configure() { // 스프링 시큐리티 기능 비활성화
         return (web) -> web.ignoring()
                 .requestMatchers(toH2Console()) // H2 콘솔 접근 허용
-                .requestMatchers( // 정적 리소스 접근 허용(img, css, js)
-                        new AntPathRequestMatcher("/img/**"),
-                        new AntPathRequestMatcher("/css/**"),
-                        new AntPathRequestMatcher("/js/**")
-                );
+                .requestMatchers("/img/**", "/css/**", "/js/**"); // 정적 리소스 접근 허용(img, css, js)
+//                .requestMatchers( // 정적 리소스 접근 허용(img, css, js)
+//                        new AntPathRequestMatcher("/img/**"),
+//                        new AntPathRequestMatcher("/css/**"),
+//                        new AntPathRequestMatcher("/js/**")
+//                );
     }
 
 

@@ -51,8 +51,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Service
 public class OAuth2UserCustomService extends DefaultOAuth2UserService {
-    private final UserRepository userRepository;
 
+    private final UserRepository userRepository;
     /**
      * 제공된 {@link OAuth2UserRequest}를 기반으로 OAuth2 사용자를 로드합니다.
      *

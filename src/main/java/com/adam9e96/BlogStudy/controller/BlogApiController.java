@@ -59,19 +59,18 @@ public class BlogApiController {
      * @param principal 현재 인증된 사용자의 정보
      * @return {@link Article} 엔티티와 HTTP 상태 코드를 반환(201 Created).
      * @throws IllegalArgumentException 요청 데이터가 유효하지 않은 경우
-     *                                  <p>
-     *                                  <strong>응답 코드:</strong>
-     *                                  </p>
+     * <p>
+     * <strong>응답 코드:</strong>
+     * </p>
      *
-     *                                  <ul>
-     *                                    <li>{@code 201 Created}: 게시물이 성공적으로 생성되었을 때 반환됩니다.</li>
-     *                                    <li>{@code 400 Bad Request}: 요청 데이터가 유효하지 않을 경우 반환될 수 있습니다.</li>
-     *                                    <li>{@code 500 Internal Server Error}: 서버 내부 오류가 발생했을 때 반환될 수 있습니다.</li>
-     *                                  </ul>
+     * <ul>
+     * <li>{@code 201 Created}: 게시물이 성공적으로 생성되었을 때 반환됩니다.</li>
+     * <li>{@code 400 Bad Request}: 요청 데이터가 유효하지 않을 경우 반환될 수 있습니다.</li>
+     * <li>{@code 500 Internal Server Error}: 서버 내부 오류가 발생했을 때 반환될 수 있습니다.</li>
+     * </ul>
      */
     @PostMapping("/api/articles")
-    public ResponseEntity<Article> addArticle(@RequestBody AddArticleRequest request,
-                                              Principal principal) {
+    public ResponseEntity<Article> addArticle(@RequestBody AddArticleRequest request, Principal principal) {
         Article savedArticle = blogService.save(request, principal.getName());
 
         log.info("BlogApiController.addArticle 메소드 매개변수:" +
@@ -157,8 +156,7 @@ public class BlogApiController {
      * @throws IllegalArgumentException 해당 ID에 해당하는 게시물이 존재하지 않거나 권한이 없는 경우
      */
     @PutMapping("/api/articles/{id}")
-    public ResponseEntity<Article> updateArticle(@PathVariable("id") Long id,
-                                                 @RequestBody UpdateArticleRequest request) {
+    public ResponseEntity<Article> updateArticle(@PathVariable("id") Long id, @RequestBody UpdateArticleRequest request) {
         log.info("BlogApiController.updateArticle 메소드 매개변수: id: {}, request: {}", id, request.toString());
         Article updatedArticle = blogService.update(id, request);
 

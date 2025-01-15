@@ -1,6 +1,5 @@
 package com.adam9e96.BlogStudy.config.oauth;
 
-
 import com.adam9e96.BlogStudy.util.CookieUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.web.util.WebUtils;
+
+import java.util.Objects;
 
 /**
  * exceptionHandling() 메서드 예외 처리 설정
@@ -30,12 +31,11 @@ public class OAuth2AuthorizationRequestBasedOnCookieRepository implements
         Cookie cookie = WebUtils.getCookie(request, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME);
         log.info("loadAuthorizationRequest()에서 가져온 쿠키 객체 :{}", cookie);
 
-        return CookieUtil.deserialize(cookie, OAuth2AuthorizationRequest.class);
+        return CookieUtil.deserialize(Objects.requireNonNull(cookie), OAuth2AuthorizationRequest.class);
     }
 
     @Override
-    public void saveAuthorizationRequest(OAuth2AuthorizationRequest authorizationRequest, HttpServletRequest request,
-                                         HttpServletResponse response) {
+    public void saveAuthorizationRequest(OAuth2AuthorizationRequest authorizationRequest, HttpServletRequest request, HttpServletResponse response) {
         if (authorizationRequest == null) {
             removeAuthorizationRequestCookies(request, response);
             return;
