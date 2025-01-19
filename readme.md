@@ -80,3 +80,73 @@ sequenceDiagram
 
 1. 클라이언트의 `token.js`가 URL에서 액세스 토큰을 추출하여 localStorage에 저장
 2. `/articles` 엔드포인트로 이동하여 게시글 목록 페이지 표시
+
+---
+
+## 로그인 이후 JWT 인증 흐름
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as Frontend
+    participant TFilter as TokenAuthenticationFilter
+    participant TProvider as TokenProvider
+    participant Context as SecurityContext
+    participant API as BlogApiController
+    participant Service as BlogService
+    User ->> Client: API 요청 (글 작성/수정 등)
+    Client ->> Client: localStorage에서<br/>access token 획득
+    Client ->> TFilter: HTTP 요청 + Bearer Token
+    activate TFilter
+    TFilter ->> TProvider: validToken(token) 토큰 검증
+
+    alt 유효한 토큰
+        TProvider -->> TFilter: true
+        TFilter ->> TProvider: getAuthentication(token)
+        TProvider -->> TFilter: Authentication 객체
+        TFilter ->> Context: Authentication 객체 저장
+        TFilter ->> API: 요청 전달
+        API ->> Service: 비즈니스 로직 수행
+        Service -->> API: 결과 반환
+        API -->> Client: 200 OK + 결과
+    else 토큰 만료
+        TProvider -->> TFilter: false
+        TFilter -->> Client: 401 Unauthorized
+        Client ->> Client: refresh token으로<br/>새 access token 요청
+    end
+
+    deactivate TFilter
+```
+
+
+1. API 요청 시작:
+    - 사용자가 보호된 리소스(예: 글 작성)에 접근 시도
+    - Frontend가 localStorage에서 access token을 가져옴
+    - 요청 헤더에 `Authorization: Bearer {token}` 추가
+
+2. TokenAuthenticationFilter 처리:
+   ```java
+   doFilterInternal(request, response, filterChain) {
+       String token = getAccessToken(request.getHeader("Authorization"));
+       if (tokenProvider.validToken(token)) {
+           Authentication auth = tokenProvider.getAuthentication(token);
+           SecurityContextHolder.getContext().setAuthentication(auth);
+       }
+   }
+   ```
+
+3. 토큰 검증 및 인증:
+    - TokenProvider가 JWT 토큰의 유효성 검증
+    - 유효한 경우 Authentication 객체 생성
+    - SecurityContext에 Authentication 저장
+
+4. API 요청 처리:
+    - 인증된 요청이 컨트롤러로 전달
+    - 비즈니스 로직 수행 후 결과 반환
+
+5. 토큰 만료 시:
+    - 401 Unauthorized 응답
+    - Frontend가 refresh token으로 새 access token 요청
+    - 새 토큰으로 원래 요청 재시도
+
+이는 세션-쿠키 방식과 달리 JWT를 사용하여 무상태(Stateless) 인증을 구현한 것입니다. 각 요청마다 토큰이 검증되며, 서버에 세션을 유지하지 않습니다.
