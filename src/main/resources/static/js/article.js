@@ -1,8 +1,6 @@
 'use strict';
-
 /**
  * 삭제 기능을 담당하는 코드입니다.
- * deleteButton 요소를 찾아 클릭 이벤트 리스너를 추가합니다.
  */
 const deleteButton = document.getElementById('delete-btn');
 
@@ -29,7 +27,6 @@ if (deleteButton) {
 
 /**
  * 수정 기능을 담당하는 코드입니다.
- * modifyButton 요소를 찾아 클릭 이벤트 리스너를 추가합니다.
  * 수정 시 제목과 내용을 가져와서 PUT 요청을 보냅니다.
  * 요청이 완료되면 알림을 표시하고 해당 글 페이지로 이동합니다.
  */
@@ -62,7 +59,6 @@ if (modifyButton) {
 
 
 // 등록 기능
-// id 가 create-btn 인 엘리먼트
 const createButton = document.getElementById('create-btn');
 
 if (createButton) {
@@ -111,18 +107,27 @@ function getCookie(key) {
 
 // HTTP 요청을 보내는 함수
 function httpRequest(method, url, body, success, fail) {
+    const accessToken = localStorage.getItem('access_token');
+    console.log("저장된 access_token", accessToken);
+
     fetch(url, {
         method: method,
         headers: { // 로컬 스토리지에서 액세스 토큰 값을 가져와 헤더에 추가
-            Authorization: 'Bearer ' + localStorage.getItem('access_token'),
+            // Authorization: 'Bearer ' + localStorage.getItem('access_token'),
+            Authorization: accessToken ? `Bearer ${accessToken}` : null,
             'Content-Type': 'application/json',
         },
         body: body,
     }).then(response => {
+
+        console.log("응답 상태", response.status);
+
         if (response.status === 200 || response.status === 201) {
             return success();
         }
+
         const refresh_token = getCookie('refresh_token');
+
         if (response.status === 401 && refresh_token) {
             fetch('/api/token', {
                 method: 'POST',

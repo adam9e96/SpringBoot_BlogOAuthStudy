@@ -64,13 +64,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     public static final String REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
     public static final Duration REFRESH_TOKEN_DURATION = Duration.ofDays(14);
     public static final Duration ACCESS_TOKEN_DURATION = Duration.ofDays(1);
-    public static final String REDIRECT_PATH = "/articles";
+    public static final String REDIRECT_PATH = "/articles"; // GET /articles 요청으로 articleList 페이지로 이동
 
     private final TokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final OAuth2AuthorizationRequestBasedOnCookieRepository authorizationRequestRepository;
     private final UserService userService;
-//    private final AuthorizationRequestRepository authorizationRequestRepository;
 
     /**
      * OAuth2 인증이 성공했을 때 호출되는 메서드입니다.
@@ -96,24 +95,32 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException {
 
+        // OAuth2 로그인 처리 순서
+        // 1. OAuth2User 정보 추출 (인증 완료된 사용자 정보)
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        log.info("OAuth2SuccessHandler.onAuthenticationSuccess : oAuth2User: {}", oAuth2User.getAttributes().toString());
+        log.info("OAuth2 사용자 정보: {}", oAuth2User.getAttributes());
 
-        //        User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
+        // 2. 사용자 조회 또는 생성 (회원가입)
         User user = userService.findByEmail((String) oAuth2User.getAttributes().get("email"));
-        log.info("User: {}", user.toString());
-        log.info("User: {}", user.getEmail());
+        log.info("조회된 사용자: {}", user);
 
-        // 1. 리프레시 토큰 생성 -> 저장 -> 쿠키에 저장
+        // 3. 리프레시 토큰 생성
         String refreshToken = tokenProvider.generateToken(user, REFRESH_TOKEN_DURATION);
+
+        // 4. 리프레시 토큰 DB 저장
         saveRefreshToken(user.getId(), refreshToken);
+
+        // 5. 리프레시 토큰을 쿠키에 저장
         addRefreshTokenToCookie(request, response, refreshToken);
-        // 2. 액세스 토큰 생성 -> 패스에 액세스 토큰 추가
+
+        // 6. 액세스 토큰 생성
         String accessToken = tokenProvider.generateToken(user, ACCESS_TOKEN_DURATION);
-        String targetUrl = getTargetUrl(accessToken);
-        // 3. 인증 관련 설정값, 쿠키 제거
+
+        // 7. 인증 관련 설정값, 쿠키 제거
         clearAuthenticationAttributes(request, response);
-        // 4. 리다이렉트
+
+        // 8. 액세스 토큰을 포함한 URL 로 리다이렉트
+        String targetUrl = getTargetUrl(accessToken);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
@@ -167,10 +174,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
      */
     private void clearAuthenticationAttributes(HttpServletRequest request, HttpServletResponse response) {
         super.clearAuthenticationAttributes(request);
-//        authorizationRequestRepository.removeAuthorizationRequest(request, response);
         authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
-
-
     }
 
     //' 액세스 토큰을 패스에 추가
@@ -180,16 +184,23 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
      *
      * <p>
      * 이 메서드는 지정된 리다이렉트 경로에 액세스 토큰을 쿼리 파라미터로 추가하여 최종 URL을 생성합니다.
+     * 전달된 토큰은 token.js 에서 브라우저의 로컬 스토리지에 저장됩니다.
+     * 이 후 이 토큰은 모든 HTTP 요청의 Authorization 헤더에 추가되어 서버로 전송됩니다.
      * </p>
      *
      * @param token 생성된 액세스 토큰
      * @return 액세스 토큰이 포함된 최종 리다이렉트 URL
+     * <p>
+     * http://www.localhost:8080/?token=
+     * eyJraWQiOiJ-1eXAiLCJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ1c2VyQGdtYWlsLmNvbSIsImlhdCI6MTczNzI4MzUxMSwiZXhwIjoxNzM3MzY5OTExLCJzdWIiOiJhZGFtOWU5NkBnbWFpbC5jb20iLCJpZCI6MX0.MYnST-K1RimVQG33cOEaKnvPu6PU7Qkx0QQwDkQ9dqI
      */
     private String getTargetUrl(String token) {
-        return UriComponentsBuilder.fromUriString(REDIRECT_PATH)
+        String uriString = UriComponentsBuilder.fromUriString(REDIRECT_PATH)
                 .queryParam("token", token)
                 .build()
                 .toUriString();
+        log.info("리다이렉트 URL 생성: {}", uriString);
+        return uriString;
     }
 
 }

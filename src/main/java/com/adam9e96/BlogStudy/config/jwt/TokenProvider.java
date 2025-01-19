@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -22,7 +23,6 @@ import java.util.Set;
 @Service
 @Slf4j
 public class TokenProvider {
-
 
     private final JwtProperties jwtProperties;
 
@@ -54,15 +54,13 @@ public class TokenProvider {
      * @return 생성된 JWT 토큰 문자열
      */
     public String generateToken(User user, Duration expiredAt) {
-        log.info("TokenProvider.generateToken() : Generating token for user: {}, expiration: {}", user.toString(), expiredAt);
 
+        // 1. 현재 시간 기준으로 토큰 만료 시간 설정
         Date now = new Date();
-        String token = makeToken(new Date(now.getTime() + expiredAt.toMillis()), user);
-        log.info("Token generated: {}", token.toString()); // 이 값은 로컬 스토리지 : access_token 에 저장됨
-        return token;
-    }
+        Date expiryDate = new Date(now.getTime() + expiredAt.toMillis());
 
-    // JWT 토큰 생성 메서드
+        return makeToken(expiryDate, user);
+    }
 
     /**
      * JWT 토큰을 실제로 생성하는 메서드
@@ -72,25 +70,23 @@ public class TokenProvider {
      * @return 생성된 JWT 토큰 문자열
      */
     private String makeToken(Date expiry, User user) {
-        log.info("makeToken() | Creating token with expiry: {}, user: {}", expiry, user);
         Date now = new Date();
         String token = Jwts.builder()
                 .header()
                 .keyId("typ") // 헤더에 key ID 설정
                 .type("JWT") // 헤더에 타입 설정 (JWT)
                 .and()
-//                .setHeaderParam("type","jwt") // 헤더 typ : JWT (더이상 사용되지 않음)
                 // 내용 iss : adam1123@gmail.com(properties 파일에서 설정한 값)
-                .issuer(jwtProperties.getIssuer()) // adam6a@gmai.com
-                .issuedAt(now) // 내용 iat : 현재 시간
-                .expiration(expiry) // 내용 exp : expiry 멤버 변숫값
-                .subject(user.getEmail()) // 내용 sub : 유저의 이메일
-                .claim("id", user.getId()) // 클레임 id : 유저 ID
-                // 서명 : 비밀값과 함께 해시 값을 HS256 방식으로 암호화
+                .issuer(jwtProperties.getIssuer()) // "iss" : "adam6a@gmai.com"
+                .issuedAt(now) // "iat" : "현재 시간"
+                .expiration(expiry) // "exp" : "expiry"
+                .subject(user.getEmail()) // "sub" : "유저의 이메일"
+                .claim("id", user.getId()) // "id" : "유저의 ID"
+                // 4. 서명 ( 비밀값을 사용하여 해시값을 생성)
+                // 비밀값과 함께 해시 값을 HS256 방식으로 암호화
                 .signWith(getSecretKey(), Jwts.SIG.HS256)
-//                .signWith(SignatureAlgorithm.HS256, jwtProperties.getSecretKey()) // 더이상 안씀
-                .compact(); // 최종 토큰 문자열 생성
-        log.info("makeToken() | 토근 생성 성공 : {}", token);
+                // 5. 컴팩트 (최종 토큰 문자열 생성)
+                .compact();
         return token;
     }
 
@@ -101,7 +97,6 @@ public class TokenProvider {
      * @return 유요한 토큰이면 true, 그렇지 않으면 false
      */
     public boolean validToken(String token) {
-        log.info("validToken() | Validating token: {}", token);
         try {
             Jwts.parser()
                     .verifyWith(getSecretKey()) // 비밀값으로 복호화
@@ -117,25 +112,77 @@ public class TokenProvider {
 
     /**
      * JWT 토큰을 기반으로 Authentication 객체를 생성하는 메서드
+     * UsernamePassswordAuthenticationToken 객체를 생성하여 반환
      *
      * @param token 인증에 사용할 JWT 토큰 문자열
      * @return Authentication 객체
      */
     public Authentication getAuthentication(String token) {
-        log.info("getAuthentication() | Getting authentication for token: {}", token);
-        Claims claims = getClaims(token);
-        Set<SimpleGrantedAuthority> authorities = Collections.singleton(new
-                SimpleGrantedAuthority("ROLE_USER"));
+        log.info("getAuthentication() 시작");
 
-        return new UsernamePasswordAuthenticationToken(new org.springframework.security.core
-                .userdetails.User(
-                claims.getSubject(), // 사용자 이메일을 principal 로 설정
-                "", // 비밀번호는 빈 문자열로 설정 (이미 인증됨)
-                authorities // 권한 설정
-        ),
-                token,  // credentials 로 토큰 자체를 설정
-                authorities // 권한 설정
+        // 4. Claims에서 사용자 정보 추출
+        Claims claims = getClaims(token);
+
+        // 5. 권한 정보 설정
+        Set<SimpleGrantedAuthority> authorities = Collections.singleton(
+                new SimpleGrantedAuthority("ROLE_USER")
         );
+        log.info("getAuthentication() | 권한: {}", authorities);
+
+        // UserDetails 객체 생성 (빌더 패턴 사용)
+        // UserDetails 를 구현한 user 엔티티를 사용하고 기에 Spring Security 에서 제공하는 User 객체를 사용 하지 않음
+        /*
+         * Spring Security 에서 제공하는 User 객체를 사용하는 경우
+         *     UserDetails userDetails = User.builder()
+         *             .username(claims.getSubject())  // 사용자 이메일
+         *             .password("")                   // 비밀번호 빈 문자열 (이미 인증됨)
+         *             .authorities(authorities)       // 권한 설정
+         *             .build();
+         */
+        // UserDetails 객체 생성 1. 생성자 방식
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                claims.getSubject(), // username
+                "",                  // password (빈 문자열)
+                authorities          // 권한 목록
+        );
+        // UserDetails 객체 생성 2. 빌더 패턴
+        /*
+         * UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
+         *         .username(claims.getSubject())  // 사용자 이메일
+         *         .password("")                   // 비밀번호 빈 문자열 (이미 인증됨)
+         *         .authorities(authorities)       // 권한 설정
+         *         .build();
+         */
+
+        User user = User.builder()
+                .email(claims.getSubject())    // 이메일(username)
+                .password("")                  // 비밀번호 빈 문자열 (이미 인증됨)
+                .build();
+
+        // 6. UsernamePasswordAuthenticationToken 개체 생성 (인증 객체 생성)
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        user,   // principal (User 객체)
+                        token,          // credentials (JWT 토큰)
+                        authorities     // 권한 목록
+                );
+
+
+        // ========================================================================================================
+        // 3,4 과정을 한번에 처리
+//        return new UsernamePasswordAuthenticationToken(
+//                new org.springframework.security.core.userdetails.User(
+//                        claims.getSubject(), // 사용자 이메일을 principal 로 설정
+//                        "", // 비밀번호는 빈 문자열로 설정 (이미 인증됨)
+//                        authorities // 권한 설정
+//                ),
+//                token,  // credentials 로 토큰 자체를 설정
+//                authorities // 권한 설정
+//        );
+        // ========================================================================================================
+
+        log.info("인증 객체 생성 완료: {}", authentication);
+        return authentication;
     }
 
     // 토큰 기반으로 유저 ID를 가져오는 메서드
@@ -164,8 +211,8 @@ public class TokenProvider {
         Claims claims = Jwts.parser()
                 .verifyWith(getSecretKey()) // 비밀값으로 복호화
                 .build()
-                .parseClaimsJws(token)
-                .getBody(); // 토큰에서 클레임 추출
+                .parseSignedClaims(token)
+                .getPayload(); // 토큰에서 클레임 추출
 //        return Jwts.parser() // 클레임 조회
 //                .verifyWith(getSecretKey()) // SecretKey 설정
 //                .build()

@@ -50,11 +50,6 @@ public class WebOAuthSecurityConfig {
         return (web) -> web.ignoring()
                 .requestMatchers(toH2Console()) // H2 콘솔 접근 허용
                 .requestMatchers("/img/**", "/css/**", "/js/**"); // 정적 리소스 접근 허용(img, css, js)
-//                .requestMatchers( // 정적 리소스 접근 허용(img, css, js)
-//                        new AntPathRequestMatcher("/img/**"),
-//                        new AntPathRequestMatcher("/css/**"),
-//                        new AntPathRequestMatcher("/js/**")
-//                );
     }
 
 
@@ -65,10 +60,6 @@ public class WebOAuthSecurityConfig {
      * 1. 불필요한 기능 비활성화 (CSRF, HTTP Basic, Form Login, Logout)
      * 2. 세션 관리 (무상태 세션) -> 서버가 세션 상태를 유지하지 않도록 구성 (REST API 와 토큰 기반 인증을 사용하기 때문)
      * 3. 커스텀 토큰 인증 필터 추가 (UsernamePasswordAuthenticationFilter 앞에 위치)
-     *
-     * @param http
-     * @return
-     * @throws Exception
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -97,29 +88,31 @@ public class WebOAuthSecurityConfig {
                         .requestMatchers("/api/**").authenticated() // api/** 보호 : /api/** 경로에 대한 접근은 인증된 사용자만 허용
                         .anyRequest().permitAll() // 기타 요청 모두 허용(비 API 엔드포인트에 대한 모든 요청을 허용)
                 )
-
-                // OAuth2 로그인 구성
+                // ==================== OAuth2 로그인 구성 ====================
+                // OAuth2 로그인 구성 (최초 로그인 시)
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login") // 로그인 페이지 설정 (oauthLogin.html)에 리디렉션하여 OAuth2 로그인을 처리
                         // 커스텀 oAuthorizationRequestBasedOnCookieRepository 빈을 사용하여 OAuth2AuthorizationRequest 를
                         // 사용하여 쿠키에 저장하고 인증 요청을 관리합니다.
                         .authorizationEndpoint(authorization ->
-                                authorization.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository())
+                                authorization.authorizationRequestRepository(
+                                        oAuth2AuthorizationRequestBasedOnCookieRepository()
+                                )
                         )
                         // 사용자 서비스 설정
                         // OAuth2 로그인 성공 시 사용자 정보를 가져오는 데 사용할 사용자 서비스를 설정합니다.
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(oAuth2UserCustomService)
                         )
-                        // 성공 핸들러 설정
+                        // 로그인 성공시  핸들러 설정
                         .successHandler(oAuth2SuccessHandler())
                 )
-
+                // ==================== 로그아웃 구성 ====================
                 // 로그아웃 성공 시 리디렉션할 URL을 설정합니다.
                 .logout(logout ->
                         logout.logoutSuccessUrl("/login")
                 )
-
+                // ==================== 예외 처리 구성 ====================
                 // API 엔드포인트에 대한 예외 처리
                 .exceptionHandling(exception ->
                         exception.defaultAuthenticationEntryPointFor(
@@ -133,8 +126,7 @@ public class WebOAuthSecurityConfig {
 
     @Bean
     public OAuth2SuccessHandler oAuth2SuccessHandler() {
-        return new OAuth2SuccessHandler(tokenProvider,
-                refreshTokenRepository,
+        return new OAuth2SuccessHandler(tokenProvider, refreshTokenRepository,
                 oAuth2AuthorizationRequestBasedOnCookieRepository(),
                 userService
         );

@@ -53,6 +53,7 @@ import java.util.Map;
 public class OAuth2UserCustomService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+
     /**
      * 제공된 {@link OAuth2UserRequest}를 기반으로 OAuth2 사용자를 로드합니다.
      *
@@ -79,12 +80,13 @@ public class OAuth2UserCustomService extends DefaultOAuth2UserService {
         OAuth2User user = super.loadUser(userRequest);
         log.info("OAuth2UserCustomService.looadUser 메소드 찾은값 {}", user.toString());
         // 데이터베이스에 사용자 정보 저장 또는 업데이트
-        saveOrUpdate(user);
+        saveOrUpdate(user);  // DB에 사용자 저장/업데이트
         // Spring Security에서 사용할 OAuth2User 반환
         return user;
     }
 
     // 유저가 있으면 업데이트, 없으면 유저 생성
+
     /**
      * 제공된 {@link OAuth2User}를 기반으로 새로운 사용자를 저장하거나 기존 사용자를 업데이트합니다.
      *
